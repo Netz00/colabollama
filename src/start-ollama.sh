@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Configuration
+LLAMA_DIR="/content/llama.cpp"
+ARTIFACT="/content/drive/MyDrive/llama.cpp-artifacts/llama-cpp-v0.3.0-cuda12.8-t4.tar.gz"
+
+MODEL_DIR="/content/models"
+MODEL="qwen2.5-coder-14b-instruct-q5_k_m.gguf"
+MODEL_REPO="Qwen/Qwen2.5-Coder-14B-Instruct-GGUF"
+
+LLAMA_SERVER="${LLAMA_DIR}/build/bin/llama-server"
+LOG_FILE="/content/llama-server.log"
+
+HOST="127.0.0.1"
+PORT="8000"
+
+export LD_LIBRARY_PATH="/usr/lib64-nvidia:${LD_LIBRARY_PATH:-}"
+
+# Extract llama.cpp
+mkdir -p "$LLAMA_DIR"
+tar -xzf "$ARTIFACT" -C "$LLAMA_DIR"
+
+# Check llama-server
+"$LLAMA_SERVER" --version
+"$LLAMA_SERVER" --list-devices
+
+# Download model in tmux
+mkdir -p "$MODEL_DIR"
+
+DOWNLOAD_DONE="/content/model-download.done"
+
+rm -f "$DOWNLOAD_DONE"
+
+tmux new-session -d -s setup \
+  "hf download '$MODEL_REPO' '$MODEL' --local-dir '$MODEL_DIR' && touch '$DOWNLOAD_DONE'; tmux kill-session -t setup"
+
+echo "Downloading model..."
+
+while [[ ! -f "$DOWNLOAD_DONE" ]]; do
+  sleep 5
+done
+
+echo "Model download complete."
+
+# Start llama-server
+nohup "$LLAMA_SERVER" \
+  -m "${MODEL_DIR}/${MODEL}" \
+  -ngl 99 \
+  -c 20480 \
+  --temp 0.1 \
+  --host "$HOST" \
+  --port "$PORT" \
+  > "$LOG_FILE" 2>&1 &
+
+# Wait for server
+echo "Waiting for llama-server..."
+
+while ! grep -q "llama_server: listening on http://${HOST}:${PORT}" "$LOG_FILE" 2>/dev/null; do
+  sleep 10
+done
+
+echo "llama-server is ready."
+
+# GPU status
+nvidia-smi \
+  --query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu \
+  --format=csv,noheader
+
+exit 0
