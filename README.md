@@ -4,71 +4,15 @@ A small proof of concept for running **Ollama as a remote LLM server on a Google
 
 The Colab runtime provides the GPU for model inference, while the local machine runs the client or coding agent.
 
-The setup uses a CUDA-enabled `llama.cpp` build and Google Drive to persist the build artifact between Colab sessions.
+The setup uses a **CUDA-enabled, T4-optimized `llama.cpp` build**.
+
+> **Performance note:** I also tested Ollama's simpler installation approach, but it performed worse on the T4 in my tests. For this PoC, I therefore use the **T4-optimized `llama.cpp` build**.
 
 > **Prerequisites:** Python, Google Colab, and a Linux environment.
 >
 > **Tested only on Linux.**
 
 **Testing scope:** This PoC was tested in August 2026 using the Google Colab free tier, with approximately 5 hours of T4 GPU runtime per Google account available in my testing. The scripts were written and tested for a T4. If using a paid Colab plan or a different GPU, the scripts and CUDA/architecture settings may need to be adjusted accordingly.
-
-## 1st-time setup — Build llama.cpp with CUDA
-
-Build `llama.cpp` with CUDA support on a CPU runtime to avoid using GPU time for compilation. In my test, the build took approximately **1 hour** and produced a **~300 MB** compressed artifact stored on Google Drive.
-
-> **Performance note:** I also tested the simpler Ollama installation approach. In my tests, it performed worse on the T4 than this T4-targeted `llama.cpp` build, so I kept the optimized `llama.cpp` approach for this PoC.
-
-### 1. Start a build session
-
-```bash
-build_session_id="build-llama"
-
-colab new --session "$build_session_id"
-```
-
-### 2. Mount Google Drive
-
-```bash
-colab drivemount -s "$build_session_id"
-```
-
-### 3. Run the build script
-
-Send the build script to the Colab session:
-
-```bash
-colab ssh -s "$build_session_id" < src/build-llama.sh
-```
-
-Then run it:
-
-```bash
-bash build-llama.sh
-```
-
-The script will:
-
-- Install CUDA 12.8 and build dependencies
-- Clone `llama.cpp`
-- Build it with CUDA support for the **T4 (`sm_75`)**
-- Create a compressed build artifact
-- Store the artifact in Google Drive
-
-### 4. Verify the artifact
-
-Check Google Drive and confirm that the `llama.cpp` artifact was created successfully.
-
-### 5. Stop the build runtime
-
-Once the artifact is safely stored, stop the Colab runtime to avoid unnecessary runtime usage:
-
-```bash
-colab sessions
-
-colab stop -s "$build_session_id"
-
-colab sessions
-```
 
 ## Start Ollama
 
@@ -94,7 +38,6 @@ Start the T4 runtime and Ollama:
 run_session_id="colab-llm-t4"
 
 colab new --session "$run_session_id" --gpu T4
-colab drivemount -s "$run_session_id"
 colab ssh -s "$run_session_id" < scripts/start-ollama.sh
 ```
 
@@ -111,8 +54,6 @@ Stop the session when finished to save credits:
 ```bash
 colab stop -s "$run_session_id"
 ```
-
----
 
 ## Local AI Coding Agents / CLI Shims — Testing Notes
 
@@ -217,3 +158,42 @@ However, changes still had to be applied manually because automatic change appli
 In this setup, the direct model/API path worked correctly, while the tested agent integrations had issues with **tool execution, repository access, or applying changes**.
 
 IntelliJ AI provided the most usable workflow of the tested options, but still required manual change application.
+
+## Optional: Build a custom llama.cpp version
+
+If you want to try a different `llama.cpp` version or build configuration, I recommend **building on a Colab CPU runtime** (or your private PC) rather than using GPU time for compilation.
+
+The CUDA build takes approximately **1 hour** on a Colab CPU runtime and produces a **~300 MB** compressed artifact.
+
+### Build on Colab CPU
+
+Start a CPU session:
+
+```bash
+build_session_id="build-llama"
+
+colab new --session "$build_session_id"
+```
+
+Mount Google Drive:
+
+```bash
+colab drivemount -s "$build_session_id"
+```
+
+Send and run the build script:
+
+```bash
+colab ssh -s "$build_session_id" < src/build-llama.sh
+colab ssh -s "$build_session_id" -- bash build-llama.sh
+```
+
+The script installs CUDA 12.8, builds `llama.cpp` for the **T4 (`sm_75`)**, and stores the resulting artifact in Google Drive.
+
+Verify the artifact in Google Drive, then stop the session:
+
+```bash
+colab stop -s "$build_session_id"
+```
+
+> **Note:** If you use a custom build, the run script will need to be updated to point to the new artifact, and the Colab VM must have **Google Drive attached** so it can access the artifact.
