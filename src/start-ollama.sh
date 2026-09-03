@@ -48,6 +48,12 @@ nohup "$LLAMA_SERVER" \
   -m "${MODEL_DIR}/${MODEL}" \
   -ngl 99 \
   -c 20480 \
+  -fa \
+  -ctk q8_0 \
+  -ctv q8_0 \
+  -t 2 \
+  -b 2048 \
+  -ub 512 \
   --temp 0.1 \
   --jinja \
   --host "$HOST" \
