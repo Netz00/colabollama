@@ -49,6 +49,7 @@ nohup "$LLAMA_SERVER" \
   -ngl 99 \
   -c 20480 \
   --temp 0.1 \
+  --jinja \
   --host "$HOST" \
   --port "$PORT" \
   > "$LOG_FILE" 2>&1 &
