@@ -1,0 +1,39 @@
+name: Build llama.cpp CUDA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          chmod +x scripts/build-llama.sh
+          scripts/build-llama.sh
+
+      - name: Get llama.cpp revision
+        id: llama
+        run: |
+          SHA=$(git -C llama.cpp rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "llama-cpp-${{ steps.llama.outputs.sha }}-cuda12.8-t4"
+          name: "llama.cpp ${{ steps.llama.outputs.sha }} - CUDA 12.8 - T4"
+          body: |
+            Built from llama.cpp revision:
+
+            https://github.com/ggml-org/llama.cpp/tree/${{ steps.llama.outputs.sha }}
+
+            CUDA: 12.8
+            Target: NVIDIA T4 (sm_75)
+          files: artifacts/*.tar.gz
