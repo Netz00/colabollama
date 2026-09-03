@@ -21,7 +21,7 @@ Build `llama.cpp` with CUDA support on a CPU runtime to avoid using GPU time for
 ### 1. Start a build session
 
 ```bash
-build_session_id="build-ollama"
+build_session_id="build-llama"
 
 colab new --session "$build_session_id"
 ```
@@ -37,13 +37,13 @@ colab drivemount -s "$build_session_id"
 Send the build script to the Colab session:
 
 ```bash
-colab ssh -s "$build_session_id" < src/build-ollama.sh
+colab ssh -s "$build_session_id" < src/build-llama.sh
 ```
 
 Then run it:
 
 ```bash
-bash build-ollama.sh
+bash build-llama.sh
 ```
 
 The script will:
