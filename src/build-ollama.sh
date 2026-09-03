@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Versions - work with T4
 CUDA_VERSION="12.8"
-LLAMA_CPP_VERSION="v0.3.0"
+LLAMA_CPP_VERSION="master"
 
 # Paths
 CUDA_PATH="/usr/local/cuda-${CUDA_VERSION}"
@@ -25,6 +25,8 @@ export PATH="${CUDA_PATH}/bin:${PATH}"
 export CUDACXX="${CUDA_PATH}/bin/nvcc"
 
 nvcc --version
+
+rm -rf "${LLAMA_CPP_DIR}"
 
 git clone \
   --depth 1 \
