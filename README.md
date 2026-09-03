@@ -95,7 +95,7 @@ run_session_id="colab-llm-t4"
 
 colab new --session "$run_session_id" --gpu T4
 colab drivemount -s "$run_session_id"
-colab ssh -s "$run_session_id" < src/start-ollama.sh
+colab ssh -s "$run_session_id" < scripts/start-ollama.sh
 ```
 
 Create the SSH tunnel:

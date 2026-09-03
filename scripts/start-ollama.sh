@@ -3,7 +3,10 @@ set -euo pipefail
 
 # Configuration
 LLAMA_DIR="/content/llama.cpp"
-ARTIFACT="/content/drive/MyDrive/llama.cpp-artifacts/llama-cpp-v0.3.0-cuda12.8-t4.tar.gz"
+
+LLAMA_RELEASE="llama-cpp-v0.3.0-cuda12.8-t4"
+ARTIFACT="llama-cpp-v0.3.0-cuda12.8-t4.tar.gz"
+ARTIFACT_URL="https://github.com/Netz00/colabollama/releases/download/${LLAMA_RELEASE}/${ARTIFACT}"
 
 MODEL_DIR="/content/models"
 MODEL="qwen2.5-coder-14b-instruct-q5_k_m.gguf"
@@ -17,9 +20,15 @@ PORT="8000"
 
 export LD_LIBRARY_PATH="/usr/lib64-nvidia:${LD_LIBRARY_PATH:-}"
 
-# Extract llama.cpp
+# Download and extract llama.cpp
 mkdir -p "$LLAMA_DIR"
-tar -xzf "$ARTIFACT" -C "$LLAMA_DIR"
+
+echo "Downloading llama.cpp artifact..."
+wget -q --show-progress \
+  "$ARTIFACT_URL" \
+  -O "/content/${ARTIFACT}"
+
+tar -xzf "/content/${ARTIFACT}" -C "$LLAMA_DIR"
 
 # Check llama-server
 "$LLAMA_SERVER" --version
