@@ -58,7 +58,8 @@ echo "Validating artifact..."
 test -f "${ARTIFACT}"
 test -s "${ARTIFACT}"
 
-tar -tzf "${ARTIFACT}" | grep -q '^build/'
+tar -tzf "${ARTIFACT}" | grep '^build/' >/dev/null
 
 echo "Artifact successfully created:"
+
 ls -lh "${ARTIFACT}"
