@@ -4,9 +4,7 @@ set -euo pipefail
 # Configuration
 LLAMA_DIR="/content/llama.cpp"
 
-LLAMA_RELEASE="llama-cpp-v0.3.0-cuda12.8-t4"
-ARTIFACT="llama-cpp-v0.3.0-cuda12.8-t4.tar.gz"
-ARTIFACT_URL="https://github.com/Netz00/colabollama/releases/download/${LLAMA_RELEASE}/${ARTIFACT}"
+GITHUB_REPO="Netz00/colabollama"
 
 MODEL_DIR="/content/models"
 MODEL="qwen2.5-coder-14b-instruct-q5_k_m.gguf"
@@ -20,13 +18,51 @@ PORT="8000"
 
 export LD_LIBRARY_PATH="/usr/lib64-nvidia:${LD_LIBRARY_PATH:-}"
 
+# Find latest T4 llama.cpp release
+echo "Finding latest llama.cpp T4 release..."
+
+RELEASE_JSON=$(curl -fsSL \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/${GITHUB_REPO}/releases/latest")
+
+LLAMA_RELEASE=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+
+ARTIFACT=$(echo "$RELEASE_JSON" | jq -r '
+  .assets[]
+  | select(.name | test("cuda12\\.8.*t4.*\\.tar\\.gz$"; "i"))
+  | .name
+' | head -n 1)
+
+if [[ -z "$ARTIFACT" ]]; then
+  echo "ERROR: Could not find CUDA 12.8 T4 artifact in release ${LLAMA_RELEASE}"
+  echo
+  echo "Available assets:"
+  echo "$RELEASE_JSON" | jq -r '.assets[].name'
+  exit 1
+fi
+
+ARTIFACT_URL=$(echo "$RELEASE_JSON" | jq -r --arg artifact "$ARTIFACT" '
+  .assets[]
+  | select(.name == $artifact)
+  | .browser_download_url
+')
+
+echo "Release:  ${LLAMA_RELEASE}"
+echo "Artifact: ${ARTIFACT}"
+
 # Download and extract llama.cpp
 mkdir -p "$LLAMA_DIR"
 
 echo "Downloading llama.cpp artifact..."
-wget -q --show-progress \
+
+rm -f "/content/${ARTIFACT}"
+
+curl -fL --progress-bar \
   "$ARTIFACT_URL" \
-  -O "/content/${ARTIFACT}"
+  -o "/content/${ARTIFACT}"
+
+# Verify archive before extracting
+tar -tzf "/content/${ARTIFACT}" >/dev/null
 
 tar -xzf "/content/${ARTIFACT}" -C "$LLAMA_DIR"
 
