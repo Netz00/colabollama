@@ -1,30 +1,43 @@
-# Ollama on Google Colab GPU — PoC
+# Ollama on Google Colab GPU
 
-A small proof of concept for running **Ollama as a remote LLM server on a Google Colab GPU** and accessing it from a local machine through an OpenAI-compatible API.
+Run **Ollama on a Google Colab T4 GPU** and access it locally through an OpenAI-compatible API.
 
-The Colab runtime provides the GPU for model inference, while the local machine runs the client or coding agent.
+## How it works
 
-The setup uses a **CUDA-enabled, T4-optimized `llama.cpp` build**.
+The project consists of two parts:
 
-> **Performance note:** I also tested Ollama's simpler installation approach, but it performed worse on the T4 in my tests. For this PoC, I therefore use the **T4-optimized `llama.cpp` build**.
+1. **Build** — GitHub Actions builds and releases a CUDA-enabled, T4-optimized `llama.cpp` binary.
+2. **Colab setup** — the setup script downloads the `llama.cpp` build and model, starts Ollama, and exposes the API through an SSH tunnel.
 
-> **Prerequisites:** Python, Google Colab, and a Linux environment.
->
-> **Tested only on Linux.**
+Ollama uses the `llama.cpp` build produced by this project. The standard Ollama installation was also tested, but performed worse on the T4 in my tests.
 
-**Testing scope:** This PoC was tested in August 2026 using the Google Colab free tier, with approximately 5 hours of T4 GPU runtime per Google account available in my testing. The scripts were written and tested for a T4. If using a paid Colab plan or a different GPU, the scripts and CUDA/architecture settings may need to be adjusted accordingly.
+The **Colab T4 handles inference**, while the **local machine runs the client or coding agent**.
 
-## Start Ollama
+## Configured Model
 
-Configure SSH once:
+- **Model:** [`zai-org_GLM-4.7-Flash-IQ3_M.gguf`](https://huggingface.co/bartowski/zai-org_GLM-4.7-Flash-GGUF/blob/main/zai-org_GLM-4.7-Flash-IQ3_M.gguf)
+- **Base model:** [`zai-org/GLM-4.7-Flash`](https://huggingface.co/zai-org/GLM-4.7-Flash)
+- **Quantization:** IQ3_M
 
-```bash
+## Requirements
+
+- Google Colab with an NVIDIA T4
+- Linux
+- Python
+- `colab` CLI
+- SSH
+
+> Tested only on Linux.
+
+## Configure SSH once
+
+```
 nano ~/.ssh/config
 ```
 
 Add:
 
-```sshconfig
+```
 Host colab-llm-t4
     ProxyCommand colab ssh --proxy-mode -s colab-llm-t4
     User root
@@ -32,168 +45,72 @@ Host colab-llm-t4
     UserKnownHostsFile /dev/null
 ```
 
+## Start Ollama
+
 Start the T4 runtime and Ollama:
 
-```bash
+```
 run_session_id="colab-llm-t4"
 
 colab new --session "$run_session_id" --gpu T4
+
 colab ssh -s "$run_session_id" < scripts/start-ollama.sh
 ```
 
 Create the SSH tunnel:
 
-```bash
+```
 ssh -L 8000:localhost:8000 "$run_session_id"
 ```
 
-Open http://localhost:8000/ to test it.
+The API is then available locally at:
 
-Stop the session when finished to save credits:
+```
+http://localhost:8000
+```
 
-```bash
+Stop the Colab session when finished:
+
+```
 colab stop -s "$run_session_id"
 ```
 
-## Local AI Coding Agents / CLI Shims — Testing Notes
+## Local AI Coding Agent
 
-Tested in **August 2026** on **Fedora** with:
+The Ollama endpoint can be used by local AI coding agents that support OpenAI-compatible APIs.
 
-- **Model:** `qwen2.5-coder-14b-instruct-q5_k_m`
-- **Inference:** `llama.cpp`
-- **API:** OpenAI-compatible endpoint
-- **Terminal:** Terminator
+For the recommended coding-agent setup, see:
 
-I tested the shims with simple repository tasks, including asking them to locate a test file such as `test_main`. The goal was to verify basic repository inspection, tool execution, and applying changes.
+https://github.com/earendil-works/pi
 
-The same model and OpenAI-compatible endpoint were also tested independently and responded correctly. The configured model ID was verified against `/v1/models`.
+## Performance
 
-The following are personal test results from this setup.
+Tested in August 2026 using the Google Colab free tier.
 
-### Anomalyco/OpenCode
+### Hardware
 
-OpenCode did not produce a usable agent workflow.
+| ComponentValue     |                       |
+| ------------------ | --------------------- |
+| GPU                | NVIDIA Tesla T4       |
+| VRAM               | 15 GB                 |
+| Driver             | 580.82.07             |
+| CUDA               | 13.0                  |
+| CPU                | Intel Xeon @ 2.00 GHz |
+| vCPU               | 2                     |
+| RAM                | 12 GB                 |
+| Architecture       | x86_64                |
+| Compute Capability | 7.5 (Turing)          |
+| Virtualization     | KVM                   |
 
-<details>
-<summary><strong>Details</strong></summary>
+### Results
 
-Simple prompts resulted in repeated output such as:
+| MetricResult           |                |
+| ---------------------- | -------------- |
+| Generation speed       | **42.6 tok/s** |
+| Prompt processing      | 89.4 tok/s     |
+| Prompt tokens          | 15             |
+| Generated tokens       | 500            |
+| Generation time        | 11.72 s        |
+| Prompt processing time | 0.17 s         |
 
-> _Objection > work state > active > blocked > next move..._
-
-I could not copy the generated output from the Terminator terminal emulator as expected.
-
-The same model and endpoint worked correctly when tested independently. I also changed the OpenCode model ID to exactly match the ID returned by `/v1/models`; the behavior did not change.
-
-I spent approximately 20 minutes troubleshooting the setup without reaching a working configuration.
-
-</details>
-
-### Aider-AI/aider
-
-Aider required files to be explicitly added before it could inspect them.
-
-<details>
-<summary><strong>Details</strong></summary>
-
-A documentation prompt continued to appear after selecting `D` ("Don't ask again"):
-
-> Open documentation url for more info? (Y)es/(N)o/(D)on't ask again [Yes]: D
-
-When asked to locate a test file, for example:
-
-`find test_main location`
-
-Aider did not run `find` against the repository. It reported that it could not access files that had not been explicitly added.
-
-</details>
-
-### Cline
-
-Cline did not execute tool calls correctly with the local model.
-
-<details>
-<summary><strong>Details</strong></summary>
-
-Instead of executing a tool, it generated tool-call structures as plain text, for example:
-
-```text
-<tools> {"name": "read_files", ...} </tools>
-```
-
-Prompting it to "do it" again resulted in the same tool call being generated again.
-
-Observed behavior:
-
-`Qwen → tool-call text → nothing happens → repeat`
-
-</details>
-
-### aaif-goose/goose
-
-Goose did not perform basic agent actions reliably in this setup.
-
-<details>
-<summary><strong>Details</strong></summary>
-
-I tried changing the configuration and tweaking extensions, but I was still unable to get it to perform simple repository actions.
-
-</details>
-
-### IntelliJ AI
-
-IntelliJ AI was the easiest to use in this test.
-
-<details>
-<summary><strong>Details</strong></summary>
-
-Files or code snippets could be selected and sent as context to the AI.
-
-However, changes still had to be applied manually because automatic change application did not work reliably in my test.
-
-</details>
-
-### Conclusion
-
-In this setup, the direct model/API path worked correctly, while the tested agent integrations had issues with **tool execution, repository access, or applying changes**.
-
-IntelliJ AI provided the most usable workflow of the tested options, but still required manual change application.
-
-## Optional: Build a custom llama.cpp version
-
-If you want to try a different `llama.cpp` version or build configuration, I recommend **building on a Colab CPU runtime** (or your private PC) rather than using GPU time for compilation.
-
-The CUDA build takes approximately **1 hour** on a Colab CPU runtime and produces a **~300 MB** compressed artifact.
-
-### Build on Colab CPU
-
-Start a CPU session:
-
-```bash
-build_session_id="build-llama"
-
-colab new --session "$build_session_id"
-```
-
-Mount Google Drive:
-
-```bash
-colab drivemount -s "$build_session_id"
-```
-
-Send and run the build script:
-
-```bash
-colab ssh -s "$build_session_id" < src/build-llama.sh
-colab ssh -s "$build_session_id" -- bash build-llama.sh
-```
-
-The script installs CUDA 12.8, builds `llama.cpp` for the **T4 (`sm_75`)**, and stores the resulting artifact in Google Drive.
-
-Verify the artifact in Google Drive, then stop the session:
-
-```bash
-colab stop -s "$build_session_id"
-```
-
-> **Note:** If you use a custom build, the run script will need to be updated to point to the new artifact, and the Colab VM must have **Google Drive attached** so it can access the artifact.
+Results are specific to the tested T4 environment and model. Different Colab plans or GPUs may require changes to the CUDA/architecture settings.
