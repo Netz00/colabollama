@@ -9,8 +9,8 @@ LLAMA_DIR="/content/llama.cpp"
 GITHUB_REPO="Netz00/colabollama"
 
 MODEL_DIR="/content/models"
-MODEL="qwen2.5-coder-14b-instruct-q5_k_m.gguf"
-MODEL_REPO="Qwen/Qwen2.5-Coder-14B-Instruct-GGUF"
+MODEL="zai-org_GLM-4.7-Flash-IQ3_M.gguf"
+MODEL_REPO="bartowski/zai-org_GLM-4.7-Flash-GGUF"
 
 LLAMA_SERVER="${LLAMA_DIR}/build/bin/llama-server"
 LOG_FILE="/content/llama-server.log"
@@ -150,7 +150,7 @@ echo "Starting llama-server..."
 nohup "$LLAMA_SERVER" \
   -m "${MODEL_DIR}/${MODEL}" \
   -ngl 99 \
-  -c 20480 \
+  -c 8192 \
   -fa on \
   -ctk q8_0 \
   -ctv q8_0 \
