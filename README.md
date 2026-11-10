@@ -24,7 +24,7 @@ The **Colab T4 handles inference**, while the **local machine runs the client or
 - Google Colab with an NVIDIA T4
 - Linux
 - Python
-- `colab` CLI
+- [Colab CLI](https://github.com/googlecolab/google-colab-cli)
 - SSH
 
 > Tested only on Linux.
